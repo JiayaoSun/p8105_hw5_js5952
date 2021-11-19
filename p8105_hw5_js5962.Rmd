@@ -70,10 +70,77 @@ tidy_df = baltimore_prop %>%
   broom::tidy()
 tidy_df
 # pull the estimated proportion and confidence intervals from the resulting tidy dataframe
-tidy_df$estimate
-tidy_df$conf.low
-tidy_df$conf.high
+tidy_df %>% 
+  select(estimate, conf.low, conf.high)
 ```
 
+c) Run prop.test for each of the cities in your dataset, and extract both the proportion of unsolved homicides and the confidence interval for each.
+
+Firstly build the function.
+
+```{r prop_function}
+prop_test = function(city_df){
+  
+  city_unsolved =     
+  city_df %>% 
+  summarize(unsolved = sum(result == "unsolved"),
+            n = n())
+  
+city_prop =
+  prop.test(x = baltimore_unsolved %>% pull(unsolved), 
+          n = baltimore_unsolved %>% pull(n))
+return(city_prop)
+}
+```
+
+We iterate by mapping.
+
+```{r iterate_city, warning = FALSE}
+result_df =
+  homicide_clean %>% 
+  nest(data = uid:result) %>% 
+  mutate(
+    test_result = map(data, prop_test),
+    tidy_result = map(test_result, broom::tidy)
+  ) %>% 
+  select(city_state, tidy_result) %>% 
+  unnest(tidy_result) %>% 
+  select(city_state, estimate, conf.low, conf.high)
+show(result_df)
+```
+
+use map2.
+
+```{r second_method}
+result_df2 =
+  homicide_clean %>% 
+  select(-city, -state) %>% 
+  group_by(city_state) %>% 
+  summarize(unsolved = sum(result == "unsolved"),
+            n = n()) %>% 
+  mutate(
+    test_result = map2(unsolved, n, prop.test),
+    tidy_result = map(test_result, broom::tidy)
+  ) %>% 
+  select(city_state, tidy_result) %>% 
+  unnest(tidy_result) %>% 
+  select(city_state, estimate, conf.low, conf.high)
+show(result_df2)
+```
+
+d) Create a plot that shows the estimates and CIs for each city.
+
+```{r bar_plot}
+result_df %>% 
+  mutate(
+    city_state = fct_reorder(city_state, estimate)
+    ) %>% 
+   ggplot(aes(x = city_state, y = estimate)) +
+   geom_point() +
+   geom_errorbar(aes(ymin = conf.low, ymax = conf.high)) +
+   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+   labs(title = "Unsolved crime proportion and confidence interval in cities") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
 
 
