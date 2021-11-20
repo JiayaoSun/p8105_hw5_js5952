@@ -103,7 +103,7 @@ result_df =
     test_result = purrr::map(data, prop_test),
     tidy_result = purrr::map(test_result, broom::tidy)
   ) %>% 
-  select(city_state, tidy_result) %>% 
+  select(-test_result) %>% 
   unnest(tidy_result) %>% 
   select(city_state, estimate, conf.low, conf.high)
 show(result_df)
@@ -122,7 +122,7 @@ result_df2 =
     test_result = purrr::map2(unsolved, n, prop.test),
     tidy_result = purrr::map(test_result, broom::tidy)
   ) %>% 
-  select(city_state, tidy_result) %>% 
+  select(-test_result) %>% 
   unnest(tidy_result) %>% 
   select(city_state, estimate, conf.low, conf.high)
 show(result_df2)
@@ -194,13 +194,13 @@ Make a spaghetti plot showing observations on each subject over time, and commen
 new_df %>% 
   ggplot(aes(x = as.numeric(week), y = value, color = as.factor(subject_id))) +
   geom_line() + geom_point(aes(shape = as.factor(arm)), alpha = 0.7) +
-  labs(title = "Obervation over weeks") +
+  labs(title = "Obervation over weeks", x = "weeks", y = "value") +
   scale_colour_hue("Subject_id") +
-  scale_shape("Arm")
+  scale_shape("Arm") +
+  theme(plot.title = element_text(hjust = 0.5))
 ```
 
-
-comment
+comment: observations show that the experiment groups increase much more than the control groups over time.
 
 ## Problem 3
 
@@ -218,12 +218,14 @@ refill missing data function
 
 ```{r refill_missing}
 refill_miss = function(miss) {
-  
-  if(is.numeric(miss)) {
-    mean_miss = round(mean(miss, na.rm = TRUE), digits = 2)
+
+# For numeric variables
+  if (is.numeric(miss)) {
+    mean_miss = round(mean(miss, na.rm = TRUE), digits = 3)
     miss = replace_na(miss, mean_miss)
   }
-  
+
+# For character variables
   if (is.character(miss)) {
     miss = replace_na(miss, "virginica")
   }
@@ -234,7 +236,7 @@ refill_miss = function(miss) {
 Then Refill and Build the new data
 
 ```{r refill_data}
-iris_new = map(iris_with_missing, missing) %>% 
+iris_new = map(iris_with_missing, refill_miss) %>% 
   bind_cols()
 iris_new
 ```
